@@ -1,0 +1,15 @@
+name: 'Surge Preview'
+description: 'Build and upload a preview to surge.sh and comment on the PR'
+inputs:
+  folder:
+    description: 'The folder to upload (e.g. packages/module/public)'
+    required: true
+runs:
+  using: 'composite'
+  steps:
+    - name: Install surge-preview dependencies
+      shell: bash
+      run: npm install --prefix ${{ github.action_path }}
+    - name: Upload to surge
+      shell: bash
+      run: node ${{ github.action_path }}/upload-preview.js ${{ inputs.folder }}
