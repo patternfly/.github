@@ -1,0 +1,68 @@
+name: Check team membership
+on:
+  workflow_call:
+    inputs:
+      team:
+        description: 'The GitHub team slug to check membership against'
+        default: 'frequent-flyers'
+        type: string
+      organization:
+        description: 'The GitHub organization'
+        default: 'patternfly'
+        type: string
+    outputs:
+      allowed:
+        description: 'Whether the actor is a member of the specified team'
+        value: ${{ jobs.check.outputs.allowed }}
+      pr-number:
+        description: 'The pull request number'
+        value: ${{ jobs.check.outputs.pr-number }}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'pull_request_target' ||
+      (github.event_name == 'issue_comment' &&
+        github.event.issue.pull_request &&
+        contains(github.event.comment.body, '/deploy-preview'))
+    outputs:
+      allowed: ${{ steps.check-team.outputs.allowed }}
+      pr-number: ${{ steps.pr-info.outputs.number }}
+    steps:
+      - name: Get PR info
+        id: pr-info
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_ACTOR: ${{ github.event.pull_request.user.login }}
+          COMMENT_NUMBER: ${{ github.event.issue.number }}
+          COMMENT_ACTOR: ${{ github.event.comment.user.login }}
+        run: |
+          if [[ "$EVENT_NAME" == "pull_request_target" ]]; then
+            echo "number=$PR_NUMBER" >> $GITHUB_OUTPUT
+            echo "actor=$PR_ACTOR" >> $GITHUB_OUTPUT
+          else
+            echo "number=$COMMENT_NUMBER" >> $GITHUB_OUTPUT
+            echo "actor=$COMMENT_ACTOR" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check team membership
+        id: check-team
+        env:
+          GH_READ_ORG_TOKEN: ${{ secrets.GH_READ_ORG_TOKEN }}
+          ACTOR: ${{ steps.pr-info.outputs.actor }}
+          ORG: ${{ inputs.organization }}
+          TEAM: ${{ inputs.team }}
+        run: |
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: token $GH_READ_ORG_TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/orgs/$ORG/teams/$TEAM/members/$ACTOR")
+          if [[ "$RESPONSE" == "204" ]]; then
+            echo "allowed=true" >> $GITHUB_OUTPUT
+            echo "$ACTOR is a member of $TEAM"
+          else
+            echo "allowed=false" >> $GITHUB_OUTPUT
+            echo "$ACTOR is not a member of $TEAM"
+          fi
