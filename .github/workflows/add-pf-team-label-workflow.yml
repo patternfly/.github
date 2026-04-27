@@ -1,0 +1,33 @@
+name: Label PF Team issues                                                                                                               
+on:
+  workflow_call:
+    inputs:
+      team:
+        description: 'Team slug to check membership against'
+        default: 'frequent-flyers'
+        type: string
+      organization:
+        description: 'GitHub organization'
+        default: 'patternfly'
+        type: string
+jobs:
+  label-issue:
+    name: Label PF Team issue
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check team membership
+        id: teamcheck
+        uses: TheModdingInquisition/actions-team-membership@v1.0
+        with:
+          token: ${{ secrets.GH_READ_ORG_TOKEN }}
+          team: ${{ inputs.team }}
+          organization: ${{ inputs.organization }}
+          exit: false
+      - name: Add PF Team label
+        if: steps.teamcheck.outputs.permitted == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: | 
+          gh api "repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/labels" \
+            --method POST \
+            --field 'labels[]=PF Team'
