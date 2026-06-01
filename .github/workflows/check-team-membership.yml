@@ -55,10 +55,10 @@ jobs:
           ORG: ${{ inputs.organization }}
           TEAM: ${{ inputs.team }}
         run: |
-          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
+          RESPONSE=$(curl -sg -o /dev/null -w "%{http_code}" \
             -H "Authorization: token $GH_READ_ORG_TOKEN" \
             -H "Accept: application/vnd.github.v3+json" \
-            "https://api.github.com/orgs/$ORG/teams/$TEAM/members/$ACTOR")
+            "https://api.github.com/orgs/$ORG/teams/$TEAM/members/$ACTOR") || RESPONSE="000"
           if [[ "$RESPONSE" == "204" ]]; then
             echo "allowed=true" >> $GITHUB_OUTPUT
             echo "$ACTOR is a member of $TEAM"
